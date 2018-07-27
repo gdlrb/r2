@@ -10,6 +10,7 @@ body {
   font-family: "Open-sans", sans-serif;
   font-size: 20px;
   color: white;
+  height: auto;
 }
 
 h1 {
@@ -29,4 +30,8 @@ h1 {
 
 *:focus {
   outline: none;
+}
+
+section {
+  padding: 0 15px;
 }
