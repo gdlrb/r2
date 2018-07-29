@@ -4,18 +4,19 @@ import moment from 'moment';
 import styled from 'styled-components';
 import Expanse from './Expanse';
 import Incomes from './Incomes';
-import {findLastIndex} from 'lodash';
 
 const DateButton = styled.button`
   color: white;
-  border: 1px solid white;
+  border: 2px solid white;
   border-radius: 50%;
   background-color: transparent;
-  width: 32px;
-  height: 32px;
+  width: 35px;
+  height: 35px;
   margin: 3px;
   cursor: pointer;
   text-align: center;
+  font-size: 32px;
+  line-height: 28px;
 `;
 
 const DateLine = styled.div`
@@ -48,11 +49,21 @@ class App extends Component {
   constructor(props) {
     super(props);
 
-    this.state = {
-      date: moment(),
-      navSelected: "expanse",
-      transactions: []
+    let storageState = localStorage.getItem('state');
+    let initState;
+
+    if (storageState !== null) {
+      storageState = JSON.parse(storageState);
+      initState = {... storageState, date: moment(storageState.date)};
+    } else {
+      initState = {
+        date: moment(),
+        navSelected: 'incomes',
+        transactions: [],
+      }
     }
+
+    this.state = initState;
   }
 
   handleAddDay = () => {
@@ -76,20 +87,52 @@ class App extends Component {
       sum,
     };
 
-    const index = findLastIndex(transactions, ({date}) => {
-      const transactionDate = moment(date, 'DD.MM.YYYY');
-      return (
-        TodayDate.isBefore(transactionDate, 'day') ||
-        TodayDate.isSame(transactionDate, 'day')
-      );
-    });
+    const newTransactions = [...transactions, newTransaction];
 
-    const newTransactions = [...transactions];
-    newTransactions.splice(
-      index === -1 ? transactions.length : index, 0, newTransaction,
-    );
+    newTransactions.sort((a, b) => {
+      const aDate = moment(a.date, 'DD.MM.YY');
+      const bDate = moment(b.date, 'DD.MM.YY');
+      return aDate.isAfter(bDate);
+    })
 
     this.setState({transactions: newTransactions});
+  }
+
+  componentDidUpdate() {
+    const {date} = this.state;
+    localStorage.setItem(
+      'state',
+      JSON.stringify({... this.state, date: date.format()}),
+    );
+  }
+
+  onToday = () => {
+    const {transactions, date} = this.state;
+
+    const currentMonthTransactions = transactions.filter(
+      ({date: transactionDate}) => moment(transactionDate, 'DD.MM.YYYY').isSame(date, 'month'),
+    );
+
+    const dailyMoney = currentMonthTransactions.reduce((acc, transaction) => {
+      return transaction.sum > 0 ? transaction.sum + acc : acc;
+    }, 0) / moment(date).daysInMonth();
+
+    const transactionsBeforeThisDayAndInThisDay = currentMonthTransactions.filter(
+      ({date: transactionDate}) => 
+        moment(transactionDate, 'DD.MM.YYYY').isBefore(date, 'date') || 
+        moment(transactionDate, 'DD.MM.YYYY').isSame(date, 'date'),
+    );
+
+    const expanseBeforeToday = transactionsBeforeThisDayAndInThisDay.reduce(
+      (acc, {sum}) => (sum <0 ? acc + sum : acc),
+      0,
+    );
+
+    const incomeBeforeToday = date.date() * dailyMoney;
+
+    return incomeBeforeToday + expanseBeforeToday;
+
+
   }
 
   render() {
@@ -104,6 +147,7 @@ class App extends Component {
             <DateButton onClick={this.handleSubtractDay}>-</DateButton>
             <DateButton onClick={this.handleAddDay}>+</DateButton>
           </DateLine>
+          <p>on currrent day: {this.onToday()}</p>
         </header>
         <main>
           <Nav>
